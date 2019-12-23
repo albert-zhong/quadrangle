@@ -1,0 +1,10 @@
+{% extends 'layout/base.html' %}
+{% block title %}Quadrangle | signup{% endblock title %}
+{% block content %}
+<h2>Sign-up</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form }}
+    <button class="btn btn-success" type="submit">Signup</button>
+</form>
+{% endblock content %}
