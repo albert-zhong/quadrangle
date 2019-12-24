@@ -1,26 +1,17 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.urls import reverse
+from django.utils.text import slugify
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from mptt.models import MPTTModel, TreeForeignKey
 
 
 class College(models.Model):
-
-    class CountryOfCollege(models.TextChoices):
-        UNITED_STATES = 'USA', _('United States')
-        UNITED_KINGDOM = 'GBR', _('United Kingdom')
-        CANADA = 'CAN', _('Canada')
-        AUSTRALIA = 'AUS', _('Australia')
-
-    country = models.CharField(
-        max_length=3,
-        choices=CountryOfCollege.choices
-    )
+    country = models.CharField(max_length=3)
     state = models.CharField(max_length=20)
-
-    full_name = models.CharField(max_length=70)
-    short_name = models.CharField(max_length=20)
+    full_name = models.CharField(max_length=70, unique=True)
+    short_name = models.CharField(max_length=20, unique=True)
     parent_school = models.ForeignKey(
         'self',  # use 'self' instead of College
         blank=True,
@@ -29,8 +20,18 @@ class College(models.Model):
         on_delete=models.CASCADE,
     )
 
+    slug = models.SlugField(unique=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.short_name)
+        super(College, self).save(*args, **kwargs)
+
     def __str__(self):
         return self.short_name
+
+    def get_absolute_url(self):
+        return reverse('forum', kwargs={'slug': self.slug})
 
 
 class Thread(models.Model):
@@ -42,7 +43,6 @@ class Thread(models.Model):
     )
     title = models.CharField(max_length=127)
     body = models.CharField(max_length=2047)
-    slug = models.SlugField()
     timestamp = models.DateTimeField(default=now, editable=False)
     edited_timestamp = models.DateTimeField(null=True)
     score = models.IntegerField(default=0)
@@ -53,6 +53,16 @@ class Thread(models.Model):
         related_name='threads',
         null=True,
     )
+
+    slug = models.SlugField()
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super(Thread, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return self.slug
 
 
 class Comment(MPTTModel):

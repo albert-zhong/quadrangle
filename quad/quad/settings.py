@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'colleges.apps.CollegesConfig',
     'mptt',
     'django_extensions',
+    'crispy_forms',
 ]
 
 MIDDLEWARE = [

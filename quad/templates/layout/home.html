@@ -1,4 +1,10 @@
 {% extends 'layout/base.html' %}
 {% block content %}
     <h1>Welcome!</h1>
+    <h2>Forums</h2>
+    <ul>
+    {% for college in colleges %}
+        <li><a href="{% url 'forum' college.slug %}">{{ college.full_name }}</a></li>
+    {% endfor %}
+    </ul>
 {% endblock content %}

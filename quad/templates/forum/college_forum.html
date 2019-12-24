@@ -1,0 +1,26 @@
+{% extends 'layout/base.html' %}
+{% block title %}Quadrangle | {{ college.short_name }}{% endblock title %}
+{% block content %}
+    <h2>{{ college.full_name }}</h2>
+    <a href="{% url 'new_thread' college.slug %}" class="btn btn-primary btn-lg">Create new thread</a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Score</th>
+                <th>Author</th>
+                <th>Title</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for thread in college.threads.all %}
+            <tr>
+                <th>{{ thread.score }}</th>
+                <th>{{ thread.author }}</th>
+                <th>{{ thread.title }}</th>
+                <th>{{ thread.date }}</th>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock content %}
