@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.admin import ModelAdmin
 
-from .models import College, Thread
+from .models import College, Thread, Comment
 
 
 class CollegeForm(forms.ModelForm):
@@ -27,3 +27,9 @@ class ThreadForm(forms.ModelForm):
             'title',
             'body',
         )
+
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ('body',)

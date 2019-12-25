@@ -65,6 +65,15 @@ class Thread(models.Model):
     def __str__(self):
         return self.slug
 
+    def get_absolute_url(self):
+        return reverse(
+            'thread_list',
+            kwargs={
+                'college_slug': self.college.slug,
+                'thread_slug': self.slug
+            }
+        )
+
 
 class Comment(MPTTModel):
     author = models.ForeignKey(
@@ -82,6 +91,7 @@ class Comment(MPTTModel):
         Thread,
         on_delete=models.CASCADE,
         related_name='comments',
+        null=True, # eventually make this false
     )
 
     # mptt-django fields
@@ -89,6 +99,8 @@ class Comment(MPTTModel):
         'self',
         on_delete=models.CASCADE,
         related_name='children',
+        null=True,
+        db_index=True,
     )
 
     class MPTTMeta:

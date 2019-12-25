@@ -1,0 +1,17 @@
+{% load mptt_tags %}
+{% recursetree comments %}
+<div class="card">
+    <div class="card-header">
+        {{ node.author }} | Score: {{ node.score }}
+    </div>
+    <div class="card-body">
+        <p class="card-text">{{ node.body }}</p>
+    </div>
+    <div class="card-footer">
+        <a href="{% url 'reply' thread.college.slug thread.slug node.pk %}">Reply to this comment</a> | posted at {{ node.timestamp }}
+        {% if not node.is_leaf_node %}
+            {{ children }}
+        {% endif %}
+    </div>
+</div>
+{% endrecursetree %}

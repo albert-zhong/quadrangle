@@ -18,4 +18,6 @@
         Score: {{ thread.score }} | posted at {{ thread.timestamp }}
     </div>
 </div>
+<a class="btn btn-info btn-lg" href="{% url 'new_comment' thread.college.slug thread.slug %}">New comment</a>
+{% include 'forum/comment.html' %}
 {% endblock content %}
