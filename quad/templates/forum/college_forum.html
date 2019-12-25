@@ -17,7 +17,7 @@
             <tr>
                 <th>{{ thread.score }}</th>
                 <th>{{ thread.author }}</th>
-                <th>{{ thread.title }}</th>
+                <th><a href="{% url 'thread_list' college.slug thread.slug %}">{{ thread.title }}</a></th>
                 <th>{{ thread.date }}</th>
             </tr>
             {% endfor %}

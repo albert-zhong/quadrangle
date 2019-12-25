@@ -6,6 +6,8 @@ from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from mptt.models import MPTTModel, TreeForeignKey
 
+from .utils import unique_slugify
+
 
 class College(models.Model):
     country = models.CharField(max_length=3)
@@ -31,7 +33,7 @@ class College(models.Model):
         return self.short_name
 
     def get_absolute_url(self):
-        return reverse('forum', kwargs={'slug': self.slug})
+        return reverse('forum', kwargs={'college_slug': self.slug})
 
 
 class Thread(models.Model):
@@ -54,11 +56,10 @@ class Thread(models.Model):
         null=True,
     )
 
-    slug = models.SlugField()
+    slug = models.SlugField(unique=True)
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.title)
+        self.slug = unique_slugify(Thread, self.slug, self.title)
         super(Thread, self).save(*args, **kwargs)
 
     def __str__(self):

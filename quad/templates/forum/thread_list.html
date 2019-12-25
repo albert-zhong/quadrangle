@@ -1,0 +1,21 @@
+{% extends 'layout/base.html' %}
+{% block title %}{% endblock title %}
+{% block content %}
+<ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+    <li class="breadcrumb-item active"><a href="{% url 'forum' thread.college.slug %}">{{ thread.college.short_name }}</a></li>
+</ol>
+<div class="card">
+    <div class="card-header">
+        Thread: {{ thread.college.full_name }}
+    </div>
+    <div class="card-body">
+        <h2 class="card-title">{{ thread.title }}</h2>
+        <h3 class="card-subtitle mb-2 text-muted">by {{ thread.author }}</h3>
+        <p class="card-text">{{ thread.body }}</p>
+    </div>
+    <div class="card-footer">
+        Score: {{ thread.score }} | posted at {{ thread.timestamp }}
+    </div>
+</div>
+{% endblock content %}

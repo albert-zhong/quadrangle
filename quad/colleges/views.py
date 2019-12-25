@@ -7,26 +7,11 @@ from .forms import ThreadForm
 from .models import College, Thread
 
 
-class CollegeMixin:
+# Requires that the requested user belongs to the college
+class UserBelongsToCollegeMixin(LoginRequiredMixin, UserPassesTestMixin):
     def get_college(self):
-        return College.objects.get(slug=self.kwargs['slug'])
+        return College.objects.get(slug=self.kwargs['college_slug'])
 
-
-def get_college(slug):
-    return College.objects.get(slug=slug)
-
-
-# Displays all the threads for a college
-class ForumView(CollegeMixin, TemplateView):
-    template_name = 'forum/college_forum.html'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['college'] = self.get_college()
-        return context
-
-
-class ThreadCreateView(CollegeMixin, LoginRequiredMixin, UserPassesTestMixin, FormView):
     # LoginRequiredMixin fields and methods
     login_url = 'login'
 
@@ -38,6 +23,18 @@ class ThreadCreateView(CollegeMixin, LoginRequiredMixin, UserPassesTestMixin, Fo
         user = self.request.user
         return user.is_staff or user.college == self.get_college()
 
+
+# Displays all the threads for a college
+class ForumView(UserBelongsToCollegeMixin, TemplateView):
+    template_name = 'forum/college_forum.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['college'] = self.get_college()
+        return context
+
+
+class ThreadCreateView(UserBelongsToCollegeMixin, FormView):
     # FormView fields and functions
     template_name = 'forum/new_thread.html'
     form_class = ThreadForm
@@ -56,3 +53,12 @@ class ThreadCreateView(CollegeMixin, LoginRequiredMixin, UserPassesTestMixin, Fo
         # timestamp, score, and slug are automatically generated in models.py
         new_thread.save()
         return super().form_valid(form)
+
+
+class ThreadListView(UserBelongsToCollegeMixin, TemplateView):
+    template_name = 'forum/thread_list.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['thread'] = Thread.objects.get(slug=self.kwargs['thread_slug'])
+        return context
