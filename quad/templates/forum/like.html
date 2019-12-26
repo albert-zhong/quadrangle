@@ -1,0 +1,22 @@
+<button onclick="onArrowClick()">Like</button>
+<script>
+    function onArrowClick() {
+        const token = '{{ csrf_token }}';
+        $.ajax({
+            type: "POST",
+            headers: { "X-CSRFToken": token },
+            url: "{% url 'like_thread' thread.slug %}",
+            success: function(data) {
+                console.log(data)
+                if (data.success) {
+                    console.log('Yipee!!');
+                } else {
+                    console.log('no!!!!');
+                }
+            },
+            error: function() {
+                console.log('RIPPP');
+            }
+        });
+    }
+</script>

@@ -105,3 +105,23 @@ class Comment(MPTTModel):
 
     class MPTTMeta:
         order_insertion_by = ['-score']
+
+
+class Vote(models.Model):
+    voter = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name='%(class)s_votes',
+    )
+    is_upvote = models.BooleanField()
+
+    class Meta:
+        abstract = True
+
+
+class ThreadVote(Vote):
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
+
+
+class CommentVote(Vote):
+    comment = models.ForeignKey(Comment, on_delete=models.CASCADE)

@@ -6,10 +6,12 @@ from .views import (
     ThreadListView,
     CommentCreateView,
     CommentReplyCreateView,
+    like_thread,
 )
 
 
 urlpatterns = [
+    path('<slug:thread_slug>/like', like_thread, name='like_thread'),
     path('<slug:college_slug>', ForumView.as_view(), name='forum'),
     path('<slug:college_slug>/new', ThreadCreateView.as_view(), name='new_thread'),
     path('<slug:college_slug>/<slug:thread_slug>', ThreadListView.as_view(), name='thread_list'),

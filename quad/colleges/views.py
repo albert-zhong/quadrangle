@@ -1,10 +1,12 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.http import HttpResponse
 from django.views.generic import TemplateView
 from django.views.generic.edit import FormView
 from django.shortcuts import render
 
+import json
 from .forms import ThreadForm, CommentForm
-from .models import College, Thread, Comment
+from .models import College, Thread, Comment, ThreadVote, CommentVote
 
 
 # Requires that the requested user belongs to the college
@@ -105,3 +107,25 @@ class CommentReplyCreateView(CommentCreateView):
         )
         new_comment.save()
         return super().form_valid(form)
+
+# eventually put user verification here
+def like_thread(request, thread_slug):
+    if request.method == 'POST':
+        user = request.user
+        curr_thread = Thread.objects.get(slug=thread_slug)
+        try:
+            curr_vote = ThreadVote.objects.get(voter=user, thread=curr_thread)
+            print('Already liked!')
+        except ThreadVote.DoesNotExist:
+            new_vote = ThreadVote(
+                voter=user,
+                is_upvote=True,
+                thread=curr_thread
+            )
+            new_vote.save()
+            curr_thread.score += 1
+            curr_thread.save()
+            print('Liked!')
+
+    result = {}
+    return HttpResponse(json.dumps(result), content_type='application/json')
