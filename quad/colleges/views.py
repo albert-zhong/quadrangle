@@ -62,9 +62,22 @@ class ThreadListView(UserBelongsToCollegeMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        thread = Thread.objects.get(slug=self.kwargs['thread_slug'])
-        context['thread'] = thread
-        context['comments'] = thread.comments.all()
+        curr_thread = Thread.objects.get(slug=self.kwargs['thread_slug'])
+        context['thread'] = curr_thread
+        context['comments'] = curr_thread.comments.all()
+
+        # -1 = disliked, 0 = hasn't voted, +1 = liked
+        like_status = 0
+        try:
+            vote = ThreadVote.objects.get(
+                voter=self.request.user,
+                thread=curr_thread
+            )
+            like_status = 1 if vote.is_upvote else -1
+        except:
+            pass
+
+        context['initial_like_status'] = like_status
         return context
 
 
@@ -113,19 +126,51 @@ def like_thread(request, thread_slug):
     if request.method == 'POST':
         user = request.user
         curr_thread = Thread.objects.get(slug=thread_slug)
+
+        # if pressed == True, the like button was pressed.
+        # if pressed = False, the dislike butto was pressed.
+        pressed = json.loads(request.POST['pressed'])
+        assert isinstance(pressed, bool)
+
+        result = {'success': True}
+
         try:
             curr_vote = ThreadVote.objects.get(voter=user, thread=curr_thread)
-            print('Already liked!')
+            if curr_vote.is_upvote:
+                if pressed:  # case: hit like once, hit like again to toggle
+                    result['likeStatus'] = 0
+                    curr_thread.score -= 1
+                    curr_vote.delete()
+                else:  # case: hit like once, hit dislike
+                    result['likeStatus'] = -1
+                    curr_vote.is_upvote = False
+                    curr_vote.save()
+                    curr_thread.score -= 2
+            else:
+                if pressed:  # case: hit dislike once, hit like
+                    result['likeStatus'] = 1
+                    curr_vote.is_upvote = True
+                    curr_vote.save()
+                    curr_thread.score += 2
+                else:  # case: hit dislike once, hit dislike again to toggle
+                    result['likeStatus'] = 0
+                    curr_thread.score += 1
+                    curr_vote.delete()
         except ThreadVote.DoesNotExist:
             new_vote = ThreadVote(
                 voter=user,
-                is_upvote=True,
+                is_upvote=pressed,
                 thread=curr_thread
             )
             new_vote.save()
-            curr_thread.score += 1
-            curr_thread.save()
-            print('Liked!')
+            if pressed:  # case: hit like once
+                result['likeStatus'] = 1
+                curr_thread.score += 1
+            else:  # case: hit dislike once
+                result['likeStatus'] = -1
+                curr_thread.score -= 1
 
-    result = {}
+        curr_thread.save()
+        result['votes'] = curr_thread.score
+
     return HttpResponse(json.dumps(result), content_type='application/json')

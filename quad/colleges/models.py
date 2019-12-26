@@ -120,8 +120,16 @@ class Vote(models.Model):
 
 
 class ThreadVote(Vote):
-    thread = models.ForeignKey(Thread, on_delete=models.CASCADE)
+    thread = models.ForeignKey(
+        Thread,
+        on_delete=models.CASCADE,
+        related_name='thread_votes'
+    )
 
 
 class CommentVote(Vote):
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
+    comment = models.ForeignKey(
+        Comment,
+        on_delete=models.CASCADE,
+        related_name='comment_votes'
+    )
