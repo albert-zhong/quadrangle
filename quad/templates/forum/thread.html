@@ -3,7 +3,7 @@
 {% block content %}
 <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-    <li class="breadcrumb-item active"><a href="{% url 'forum' thread.college.slug %}">{{ thread.college.short_name }}</a></li>
+    <li class="breadcrumb-item active"><a href="{% url 'forum' college.slug %}">{{ college.short_name }}</a></li>
 </ol>
 <div class="card">
     <div class="card-header">
@@ -17,6 +17,6 @@
         {% include 'forum/like.html' %}
     </div>
 </div>
-<a class="btn btn-info btn-lg" href="{% url 'new_comment' thread.college.slug thread.slug %}">New comment</a>
+<a class="btn btn-info btn-lg" href="{% url 'new_comment' thread.slug %}">New comment</a>
 {% include 'forum/comment.html' %}
 {% endblock content %}

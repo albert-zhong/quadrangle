@@ -67,9 +67,8 @@ class Thread(models.Model):
 
     def get_absolute_url(self):
         return reverse(
-            'thread_list',
+            'thread',
             kwargs={
-                'college_slug': self.college.slug,
                 'thread_slug': self.slug
             }
         )

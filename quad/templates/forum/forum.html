@@ -13,11 +13,11 @@
             </tr>
         </thead>
         <tbody>
-            {% for thread in college.threads.all %}
+            {% for thread in threads %}
             <tr>
                 <th>{{ thread.score }}</th>
                 <th>{{ thread.author }}</th>
-                <th><a href="{% url 'thread_list' college.slug thread.slug %}">{{ thread.title }}</a></th>
+                <th><a href="{% url 'thread' thread.slug %}">{{ thread.title }}</a></th>
                 <th>{{ thread.timestamp }}</th>
             </tr>
             {% endfor %}

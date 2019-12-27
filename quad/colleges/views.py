@@ -1,8 +1,10 @@
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpResponse
 from django.views.generic import TemplateView
 from django.views.generic.edit import FormView
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 
 import json
 from .forms import ThreadForm, CommentForm
@@ -26,151 +28,274 @@ class UserBelongsToCollegeMixin(LoginRequiredMixin, UserPassesTestMixin):
         return user.is_staff or user.college == self.get_college()
 
 
-# Displays all the threads for a college
-class ForumView(UserBelongsToCollegeMixin, TemplateView):
-    template_name = 'forum/college_forum.html'
+@login_required
+def view_forum(request, college_slug):
+    college = get_object_or_404(College, slug=college_slug)
+    user = request.user
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['college'] = self.get_college()
-        return context
-
-
-class ThreadCreateView(UserBelongsToCollegeMixin, FormView):
-    # FormView fields and functions
-    template_name = 'forum/new_thread.html'
-    form_class = ThreadForm
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        return kwargs
-
-    def form_valid(self, form):
-        new_thread = Thread(
-            author=self.request.user,
-            title=form.cleaned_data['title'],
-            body=form.cleaned_data['body'],
-            college=self.get_college(),
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
         )
-        # timestamp, score, and slug are automatically generated in models.py
-        new_thread.save()
-        return super().form_valid(form)
+        return redirect('home')
+
+    template_name = 'forum/forum.html'
+    threads = college.threads.all()
+    context = {
+        'college': college,
+        'threads': threads,
+    }
+
+    return render(request, template_name, context)
 
 
-class ThreadListView(UserBelongsToCollegeMixin, TemplateView):
-    template_name = 'forum/thread_list.html'
+@login_required
+def create_thread(request, college_slug):
+    college = get_object_or_404(College, slug=college_slug)
+    user = request.user
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        curr_thread = Thread.objects.get(slug=self.kwargs['thread_slug'])
-        context['thread'] = curr_thread
-        context['comments'] = curr_thread.comments.all()
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
+        )
+        return redirect('home')
 
-        # -1 = disliked, 0 = hasn't voted, +1 = liked
-        like_status = 0
-        try:
-            vote = ThreadVote.objects.get(
-                voter=self.request.user,
-                thread=curr_thread
+    if request.method == 'POST':
+        form = ThreadForm(request.POST)
+        if form.is_valid():
+            new_thread = Thread(
+                author=user,
+                title=form.cleaned_data['title'],
+                body=form.cleaned_data['body'],
+                college=college,
             )
-            like_status = 1 if vote.is_upvote else -1
-        except:
-            pass
+        new_thread.save()
+        success_url = new_thread.get_absolute_url()
+        return redirect(success_url)
+    else:
+        form = ThreadForm()
 
-        context['initial_like_status'] = like_status
-        return context
+    template_name = 'forum/new_thread.html'
+    context = {'form': form}
+
+    return render(request, template_name, context)
 
 
-class CommentCreateView(UserBelongsToCollegeMixin, FormView):
-    def get_thread(self):
-        return Thread.objects.get(slug=self.kwargs['thread_slug'])
+@login_required
+def view_thread(request, thread_slug):
+    thread = get_object_or_404(
+        Thread.objects.select_related('college'),
+        slug=thread_slug
+    )
+    college = thread.college
+    user = request.user
 
-    def get_success_url(self):
-        return self.get_thread().get_absolute_url()
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
+        )
+        return redirect('home')
 
-    # FormView fields and functions
+    comments = thread.comments.all()
+
+    template_name = 'forum/thread.html'
+    context = {
+        'college': college,
+        'thread': thread,
+        'comments': comments,
+        'initial_like_status': get_like_status(user, thread, ThreadVote),
+    }
+
+    return render(request, template_name, context)
+
+
+# helper function to see if the user has like/disliked the thread/comment.
+# Vote object doesn't exist --> user hasn't voted --> like_status = 0
+# Vote object exists, is_upvote=True --> user has liked --> like_status = 1
+# Vote object exists, is_upvote=False --> user has disliked --> like_status = -1
+def get_like_status(user, thread, vote_class):
+    like_status = 0
+    try:
+        vote = vote_class.objects.get(
+            voter=user,
+            thread=thread
+        )
+        like_status = 1 if vote.is_upvote else -1
+    except:
+        pass
+
+    return like_status
+
+
+@login_required
+def create_comment(request, thread_slug):
+    thread = get_object_or_404(
+        Thread.objects.select_related('college',),
+        slug=thread_slug
+    )
+    college = thread.college
+    user = request.user
+
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
+        )
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            new_comment = Comment(
+                author=user,
+                body=form.cleaned_data['body'],
+                parent_thread=thread,
+            )
+            # timestamp, score, and slug are automatically generated in models.py
+            new_comment.save()
+            success_url = thread.get_absolute_url()
+            return redirect(success_url)
+        else:
+            msg = """ Sorry, something went with trying to make a comment!
+                Please try again in a few minutes """
+            messages.error(request, msg, extra_tags='alert-warning')
+    else:
+        form = CommentForm()
+
     template_name = 'forum/new_comment.html'
-    form_class = CommentForm
+    context = {'form': form}
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        return kwargs
+    return render(request, template_name, context)
 
-    def form_valid(self, form):
-        new_comment = Comment(
-            author=self.request.user,
-            body=form.cleaned_data['body'],
-            parent_thread=self.get_thread(),
+
+@login_required
+def reply_comment(request, comment_pk):
+    parent_comment = get_object_or_404(
+        Comment.objects.select_related('parent_thread__college'),
+        pk=comment_pk
+    )
+    thread = parent_comment.parent_thread
+    college = thread.college
+    user = request.user
+
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
         )
-        # timestamp, score, and slug are automatically generated in models.py
-        new_comment.save()
-        return super().form_valid(form)
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            new_comment = Comment(
+                author=user,
+                body=form.cleaned_data['body'],
+                parent_thread=thread,
+                parent=parent_comment
+            )
+            new_comment.save()
+            success_url = thread.get_absolute_url()
+            return redirect(success_url)
+        else:
+            msg = """ Sorry, something went with trying to make a comment!
+                Please try again in a few minutes. """
+            messages.error(request, msg, extra_tags='alert-warning')
+    else:
+        form = CommentForm()
+
+    template_name = 'forum/new_comment.html'
+    context = {'form': form}
+
+    return render(request, template_name, context)
 
 
-class CommentReplyCreateView(CommentCreateView):
-    def get_parent_comment(self):
-        return Comment.objects.get(pk=self.kwargs['pk'])
-
-    def form_valid(self, form):
-        new_comment = Comment(
-            author=self.request.user,
-            body=form.cleaned_data['body'],
-            parent_thread=self.get_thread(),
-            parent=self.get_parent_comment(),
-        )
-        new_comment.save()
-        return super().form_valid(form)
-
-# eventually put user verification here
+@login_required
 def like_thread(request, thread_slug):
+    thread = get_object_or_404(
+        Thread.objects.select_related('college'),
+        slug=thread_slug
+    )
+    college = thread.college
+    user = request.user
+
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
+        )
+        return redirect('home')
+
     if request.method == 'POST':
         user = request.user
-        curr_thread = Thread.objects.get(slug=thread_slug)
-
         # if pressed == True, the like button was pressed.
-        # if pressed = False, the dislike butto was pressed.
+        # if pressed = False, the dislike button was pressed.
         pressed = json.loads(request.POST['pressed'])
-        assert isinstance(pressed, bool)
+        if not isinstance(pressed, bool):
+            msg = """ Sorry, something went with trying to like the post!
+                Please try again in a few minutes. """
+            messages.error(request, msg, extra_tags='alert-warning')
 
-        result = {'success': True}
-
-        try:
-            curr_vote = ThreadVote.objects.get(voter=user, thread=curr_thread)
-            if curr_vote.is_upvote:
-                if pressed:  # case: hit like once, hit like again to toggle
-                    result['likeStatus'] = 0
-                    curr_thread.score -= 1
-                    curr_vote.delete()
-                else:  # case: hit like once, hit dislike
-                    result['likeStatus'] = -1
-                    curr_vote.is_upvote = False
-                    curr_vote.save()
-                    curr_thread.score -= 2
-            else:
-                if pressed:  # case: hit dislike once, hit like
-                    result['likeStatus'] = 1
-                    curr_vote.is_upvote = True
-                    curr_vote.save()
-                    curr_thread.score += 2
-                else:  # case: hit dislike once, hit dislike again to toggle
-                    result['likeStatus'] = 0
-                    curr_thread.score += 1
-                    curr_vote.delete()
-        except ThreadVote.DoesNotExist:
-            new_vote = ThreadVote(
-                voter=user,
-                is_upvote=pressed,
-                thread=curr_thread
-            )
-            new_vote.save()
-            if pressed:  # case: hit like once
-                result['likeStatus'] = 1
-                curr_thread.score += 1
-            else:  # case: hit dislike once
-                result['likeStatus'] = -1
-                curr_thread.score -= 1
-
-        curr_thread.save()
-        result['votes'] = curr_thread.score
+        result = {
+            'success': True,
+            'likeStatus': handle_thread_like(user, thread, pressed),
+            'votes': thread.score
+        }
 
     return HttpResponse(json.dumps(result), content_type='application/json')
+
+
+def handle_thread_like(voter, thread, pressed):
+    # Takes a voter (User object), thread, and a pressed (boolean value for
+    # if like or dislike was pressed). Returns the resultant like_status state:
+    # -1 means disliked, 0 means neutral, and +1 means liked. THIS IS NOT A 
+    # PURE FUNCTION--it will appropiately update thread.score and either add,
+    # delete, or modify a vote object.
+    
+    try:
+        curr_vote = ThreadVote.objects.get(voter=voter, thread=thread)
+        if curr_vote.is_upvote:
+            if pressed:  # case: hit like once, hit like again to toggle
+                like_status = 0
+                thread.score -= 1
+                curr_vote.delete()
+            else:  # case: hit like once, hit dislike
+                like_status = -1
+                curr_vote.is_upvote = False
+                curr_vote.save()
+                thread.score -= 2
+        else:
+            if pressed:  # case: hit dislike once, hit like
+                like_status = 1
+                curr_vote.is_upvote = True
+                curr_vote.save()
+                thread.score += 2
+            else:  # case: hit dislike once, hit dislike again to toggle
+                like_status= 0
+                thread.score += 1
+                curr_vote.delete()
+    except ThreadVote.DoesNotExist:
+        new_vote = ThreadVote(
+            voter=voter,
+            is_upvote=pressed,
+            thread=thread
+        )
+        new_vote.save()
+        if pressed:  # case: hit like once
+            like_status = 1
+            thread.score += 1
+        else:  # case: hit dislike once
+            like_status = -1
+            thread.score -= 1
+
+    thread.save()
+    return like_status

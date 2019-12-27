@@ -1,20 +1,20 @@
 from django.urls import path, include
 
 from .views import (
-    ForumView,
-    ThreadCreateView,
-    ThreadListView,
-    CommentCreateView,
-    CommentReplyCreateView,
+    view_forum,
+    create_thread,
+    view_thread,
+    create_comment,
+    reply_comment,
     like_thread,
 )
 
 
 urlpatterns = [
-    path('<slug:thread_slug>/like', like_thread, name='like_thread'),
-    path('<slug:college_slug>', ForumView.as_view(), name='forum'),
-    path('<slug:college_slug>/new', ThreadCreateView.as_view(), name='new_thread'),
-    path('<slug:college_slug>/<slug:thread_slug>', ThreadListView.as_view(), name='thread_list'),
-    path('<slug:college_slug>/<slug:thread_slug>/new', CommentCreateView.as_view(), name='new_comment'),
-    path('<slug:college_slug>/<slug:thread_slug>/<int:pk>', CommentReplyCreateView.as_view(), name='reply'),
+    path('<slug:college_slug>', view_forum, name='forum'),
+    path('<slug:college_slug>/new', create_thread, name='new_thread'),
+    path('thread/<slug:thread_slug>', view_thread, name='thread'),
+    path('thread/<slug:thread_slug>/like', like_thread, name='like_thread'),
+    path('thread/<slug:thread_slug>/new', create_comment, name='new_comment'),
+    path('thread/<int:comment_pk>/reply', reply_comment, name='reply_comment'),
 ]
