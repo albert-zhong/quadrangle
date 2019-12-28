@@ -1,31 +1,11 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpResponse
-from django.views.generic import TemplateView
-from django.views.generic.edit import FormView
 from django.shortcuts import render, redirect, get_object_or_404
 
 import json
 from .forms import ThreadForm, CommentForm
 from .models import College, Thread, Comment, ThreadVote, CommentVote
-
-
-# Requires that the requested user belongs to the college
-class UserBelongsToCollegeMixin(LoginRequiredMixin, UserPassesTestMixin):
-    def get_college(self):
-        return College.objects.get(slug=self.kwargs['college_slug'])
-
-    # LoginRequiredMixin fields and methods
-    login_url = 'login'
-
-    def get_success_url(self):
-        return self.get_college().get_absolute_url()
-
-    # UserPassesTestMixin function
-    def test_func(self):
-        user = self.request.user
-        return user.is_staff or user.college == self.get_college()
 
 
 @login_required
@@ -73,13 +53,23 @@ def create_thread(request, college_slug):
                 body=form.cleaned_data['body'],
                 college=college,
             )
-        new_thread.save()
-        success_url = new_thread.get_absolute_url()
-        return redirect(success_url)
-    else:
-        form = ThreadForm()
+            new_thread.save()
+            messages.success(
+                request,
+                'New thread successfully made!',
+                extra_tags='alert-success'
+            )
+            return redirect(new_thread)
+        else:
+            messages.warning(
+                request,
+                'Sorry, something went wrong with making that thread!',
+                extra_tags='alert-warning'
+            )
+            return redirect(college)
 
     template_name = 'forum/new_thread.html'
+    form = ThreadForm()
     context = {'form': form}
 
     return render(request, template_name, context)
@@ -134,6 +124,109 @@ def get_like_status(user, thread, vote_class):
 
 
 @login_required
+def delete_thread(request, thread_slug):
+    thread = get_object_or_404(
+        Thread.objects.select_related('college', 'author'),
+        slug=thread_slug
+    )
+    college = thread.college
+    user = request.user
+
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
+        )
+        return redirect('home')
+
+    author = thread.author
+    if not user == author and not user.is_staff:
+        messages.warning(
+            request,
+            'You can only delete your own threads!',
+            extra_tags='alert-warning'
+        )
+        return redirect(thread)
+        
+    if request.method == 'POST':
+        thread.delete()
+        messages.success(
+            request,
+            'Your thread has successfully been deleted!',
+            extra_tags='alert-success'
+        )
+        return redirect(college)
+
+    template_name = 'forum/delete_thread.html'
+    context = {
+        'thread': thread,
+        'college': college,
+        'author': author,
+    }
+    return render(request, template_name, context)
+
+
+@login_required
+def edit_thread(request, thread_slug):
+    thread = get_object_or_404(
+        Thread.objects.select_related('college', 'author'),
+        slug=thread_slug
+    )
+    college = thread.college
+    user = request.user
+
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
+        )
+        return redirect('home')
+
+    author = thread.author
+    if not user == author and not user.is_staff:
+        messages.warning(
+            request,
+            'You can only edit your own threads!',
+            extra_tags='alert-warning'
+        )
+        return redirect(thread)
+        
+    if request.method == 'POST':
+        form = ThreadForm(request.POST)
+        if form.is_valid():
+            thread.title = form.cleaned_data['title']
+            thread.body = form.cleaned_data['body']
+            thread.save()
+            messages.success(
+                request,
+                'Thread successfully updated!',
+                extra_tags='alert-success'
+            )
+            return redirect(thread)
+        else:
+            messages.warning(
+                request,
+                'Sorry, something went wrong with editing that thread!',
+                extra_tags='alert-warning'
+            )
+
+    template_name = 'forum/new_thread.html'
+
+    initial_values = {
+        'title': thread.title,
+        'body': thread.body,
+    }
+    form = ThreadForm(initial=initial_values)
+    context = {
+        'form': form,
+    }
+
+    return render(request, template_name, context)
+
+
+@login_required
 def create_comment(request, thread_slug):
     thread = get_object_or_404(
         Thread.objects.select_related('college',),
@@ -166,10 +259,9 @@ def create_comment(request, thread_slug):
             msg = """ Sorry, something went with trying to make a comment!
                 Please try again in a few minutes """
             messages.error(request, msg, extra_tags='alert-warning')
-    else:
-        form = CommentForm()
 
     template_name = 'forum/new_comment.html'
+    form = CommentForm()
     context = {'form': form}
 
     return render(request, template_name, context)
@@ -209,10 +301,9 @@ def reply_comment(request, comment_pk):
             msg = """ Sorry, something went with trying to make a comment!
                 Please try again in a few minutes. """
             messages.error(request, msg, extra_tags='alert-warning')
-    else:
-        form = CommentForm()
 
     template_name = 'forum/new_comment.html'
+    form = CommentForm()
     context = {'form': form}
 
     return render(request, template_name, context)

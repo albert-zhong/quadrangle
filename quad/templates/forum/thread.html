@@ -17,6 +17,10 @@
         {% include 'forum/like.html' %}
     </div>
 </div>
+{% if thread.author == user %}
+    <a class="btn btn-danger" href="{% url 'delete_thread' thread.slug %}">Delete thread</a>
+    <a class="btn btn-info" href="{% url 'edit_thread' thread.slug %}">Edit thread</a>
+{% endif %}
 <a class="btn btn-info btn-lg" href="{% url 'new_comment' thread.slug %}">New comment</a>
 {% include 'forum/comment.html' %}
 {% endblock content %}
