@@ -1,0 +1,3 @@
+<b>Score: </b> <div id="comment-score-{{ node.pk }}">{{ node.score }}</div>
+<button id="like-button-{{ node.pk }}" class="btn" onclick="handleCommentClick(is_like=true, id={{ node.pk }})">👍 Like</button>
+<button id="dislike-button-{{ node.pk }}" class="btn" onclick="handleCommentClick(is_like=false, id={{ node.pk }})">👎 Dislike</button>

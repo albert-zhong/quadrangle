@@ -327,22 +327,23 @@ def like_thread(request, thread_slug):
         return redirect('home')
 
     if request.method == 'POST':
-        user = request.user
         # if pressed == True, the like button was pressed.
         # if pressed = False, the dislike button was pressed.
         pressed = json.loads(request.POST['pressed'])
         if not isinstance(pressed, bool):
-            msg = """ Sorry, something went with trying to like the post!
+            msg = """ Sorry, something went wrong with trying to like the post!
                 Please try again in a few minutes. """
-            messages.error(request, msg, extra_tags='alert-warning')
-
-        result = {
-            'success': True,
-            'likeStatus': handle_thread_like(user, thread, pressed),
-            'votes': thread.score
-        }
-
-    return HttpResponse(json.dumps(result), content_type='application/json')
+            messages.error(request, msg, extra_tags='alert-error')
+        else:
+            result = {
+                'success': True,
+                'likeStatus': handle_thread_like(user, thread, pressed),
+                'votes': thread.score
+            }
+            return HttpResponse(
+                json.dumps(result),
+                content_type='application/json'
+            )
 
 
 def handle_thread_like(voter, thread, pressed):
@@ -390,3 +391,90 @@ def handle_thread_like(voter, thread, pressed):
 
     thread.save()
     return like_status
+
+
+@login_required
+def like_comment(request, comment_pk):
+    comment = get_object_or_404(
+        Comment.objects.select_related('parent_thread__college'),
+        pk=comment_pk
+    )
+    thread = comment.parent_thread
+    college = thread.college
+    user = request.user
+
+    if not user.college == college and not user.is_staff:
+        messages.warning(
+            request,
+            'You do not belong to this college.',
+            extra_tags='alert-warning'
+        )
+        return redirect('home')
+
+    if request.method == 'POST':
+        pressed_like = json.loads(request.POST['pressed_like'])
+        if not isinstance(pressed_like, bool):
+            msg = """ Sorry, something went wrong with trying to like the
+                comment! Please try again in a few minutes. """
+            messages.error(request, msg, extra_tags='alert-error')
+        else:
+            result = {
+                'success': True,
+                'likeStatus': handle_comment_like(user, comment, pressed_like),
+                'score': comment.score
+            }
+            return HttpResponse(
+                json.dumps(result),
+                content_type='application/json'
+            )
+
+
+def handle_comment_like(voter, comment, pressed_like):
+    vote = get_vote(voter=voter, vote_class=CommentVote, foreign_key=comment)
+    # if user hasn't voted, then the returned vote from get_vote() would
+    # not be commited to the database yet, and not have a primary key yet
+    like_status = 0
+    if vote.pk is not None:
+        like_status = 1 if vote.is_upvote else -1
+
+    if like_status == -1:
+        if pressed_like:  # switches from dislike to like
+            vote.is_upvote = True
+            vote.save()
+            comment.score += 2
+            like_status = 1
+        else:  # toggles off dislike
+            vote.delete()
+            comment.score += 1
+            like_status = 0
+    elif like_status == 0:  # like or dislikes for the first time
+        vote.is_upvote = pressed_like
+        vote.save()
+        comment.score = comment.score + 1 if pressed_like else comment.score - 1
+        like_status = 1 if pressed_like else -1
+    elif like_status == 1:
+        if pressed_like:  # toggles off like
+            vote.delete()
+            comment.score -= 1
+            like_status = 0
+        else:  # switches from like to dislike
+            vote.is_upvote = False
+            vote.save()
+            comment.score -= 2
+            like_status = -1
+    
+    comment.save()
+    return like_status
+
+
+def get_vote(voter, vote_class, foreign_key):
+    vote_class_kwargs = {'voter': voter}
+    vote_class_kwargs['comment'] = foreign_key
+
+    try:
+        curr_vote = vote_class.objects.get(**vote_class_kwargs)
+        return curr_vote
+    except vote_class.DoesNotExist:
+        vote_class_kwargs['is_upvote'] = True
+        new_vote = vote_class(**vote_class_kwargs)
+        return new_vote
