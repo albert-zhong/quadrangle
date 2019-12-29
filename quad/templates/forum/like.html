@@ -1,43 +1,7 @@
+{% load static %}
 <b>Current score: </b> <div id="thread-score">{{ thread.score }}</div>
-<button id="like-button" onclick="handleClick(is_like=true)">👍 Like</button>
-<button id="dislike-button" onclick="handleClick(is_like=false)">👎 Dislike</button>
-
+<button id="like-button" class="btn" onclick="handleClick(is_like=true)">👍 Like</button>
+<button id="dislike-button" class="btn" onclick="handleClick(is_like=false)">👎 Dislike</button>
 <script defer="defer">
-    $(document).ready(() => {
-        updateButtons({{ initial_like_status }});
-    });
-
-    function updateButtons(likeStatus) {
-        switch (likeStatus) {
-            case -1:
-                $('#like-button').removeClass().addClass('btn btn-outline-success');
-                $('#dislike-button').removeClass().addClass('btn btn-danger');
-                break;
-            case 1:
-                $('#like-button').removeClass().addClass('btn btn-success');
-                $('#dislike-button').removeClass().addClass('btn btn-outline-danger');
-                break;
-            default:
-                $('#like-button').removeClass().addClass('btn btn-outline-success');
-                $('#dislike-button').removeClass().addClass('btn btn-outline-danger');
-                break;
-        }
-    }
-
-    function handleClick(is_like) {
-        const token = '{{ csrf_token }}';
-        $.ajax({
-            type: "POST",
-            headers: { "X-CSRFToken": token },
-            url: "{% url 'like_thread' thread.slug %}",
-            data: { pressed: is_like },
-            success: function(data) {
-                $('#thread-score').html(data.votes);
-                updateButtons(data.likeStatus);
-            },
-            error: function() {
-                console.log('broke');
-            }
-        });
-    }
+    {% include 'forum/like.js' %}
 </script>
