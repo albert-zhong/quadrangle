@@ -5,21 +5,19 @@ from django.views.decorators.http import require_POST
 
 import json
 from .forms import ThreadForm, CommentForm
-from .messages import (
-    wrong_college_alert,
-    failed_update_alert,
-    successful_update_alert,
-    successful_delete_alert,
-    no_perms_alert,
-)
+from .messages import alert
 from .models import College, Thread, Comment, ThreadVote, CommentVote
 
 
 def user_belongs(request, college):
     if request.user.college == college or request.user.is_staff:
         return True
-    wrong_college_alert(request)
+    alert(request, 'You do not belong to this college.', 'warning')
     return False
+
+
+def user_owns(request, author):
+    return request.user == author or request.user.is_staff
 
 
 @login_required
@@ -58,11 +56,11 @@ def create_thread(request, college_slug):
                 is_anonymous=form.cleaned_data['is_anonymous'],
             )
             new_thread.save()
-            successful_update_alert(request, 'thread')
+            alert(request, 'Thread successfully created!')
             return redirect(new_thread)
         else:
-            failed_update_alert(request, 'thread')
-            return redirect(college)
+            alert(request, 'Something went wrong with creating that thread. ' +
+                'Please try again in a few minutes!', 'error')
 
     template_name = 'forum/new_thread.html'
     form = ThreadForm()
@@ -96,31 +94,6 @@ def view_thread(request, thread_slug):
     return render(request, template_name, context)
 
 
-# Returns if the user has disliked (-1), liked (+1), or neither yet (0).
-def get_like_status(user, VoteClass, foreign_key):
-    like_status = 0
-    try:
-        kwargs = {'voter': user}
-        if isinstance(foreign_key, ThreadVote):
-            kwargs['thread'] = foreign_key
-        else:
-            kwargs['comment'] = foreign_key
-
-        vote = VoteClass.objects.get(**kwargs)
-        like_status = 1 if vote.is_like else -1
-    except:
-        pass
-
-    return like_status
-
-
-def user_owns(request, author):
-    if request.user == author or request.user.is_staff:
-        return True
-    no_perms_alert(request)
-    return False
-
-
 @login_required
 def delete_thread(request, thread_slug):
     thread = get_object_or_404(
@@ -139,7 +112,7 @@ def delete_thread(request, thread_slug):
         
     if request.method == 'POST':
         thread.delete()
-        successful_delete_alert(request, model_name='thread')
+        alert(request, 'Thread successfully deleted', 'success')
         return redirect(college)
 
     template_name = 'forum/delete_thread.html'
@@ -173,21 +146,19 @@ def edit_thread(request, thread_slug):
             thread.title = form.cleaned_data['title']
             thread.body = form.cleaned_data['body']
             thread.save()
-            successful_update_alert(request, 'thread')
+            alert(request, 'Thread successfully updated!', 'success')
             return redirect(thread)
         else:
-            failed_update_alert(request, 'thread')
+            alert(request, 'Something went wrong with editing that thread. ' +
+                'Please try again in a few minutes!', 'error')
 
     template_name = 'forum/new_thread.html'
-
     initial_values = {
         'title': thread.title,
         'body': thread.body,
     }
     form = ThreadForm(initial=initial_values)
-    context = {
-        'form': form,
-    }
+    context = {'form': form}
 
     return render(request, template_name, context)
 
@@ -214,10 +185,11 @@ def create_comment(request, thread_slug):
                 is_anonymous=form.cleaned_data['is_anonymous'],
             )
             new_comment.save()
-            successful_update_alert(request, 'comment')
+            alert(request, 'Comment successfully created!', 'success')
             return redirect(thread)
         else:
-            failed_update_alert(request, 'comment')
+            alert(request, 'Something went wrong with creating that comment. ' +
+                'Please try again in a few minutes!', 'error')
 
     template_name = 'forum/new_comment.html'
     form = CommentForm()
@@ -250,10 +222,11 @@ def reply_comment(request, comment_pk):
                 parent=parent_comment
             )
             new_comment.save()
-            successful_update_alert(request, 'comment')
+            alert(request, 'Comment successfully created!', 'success')
             return redirect(thread)
         else:
-            failed_update_alert(request, 'comment')
+            alert(request, 'Something went wrong with creating that comment. ' +
+                'Please try again in a few minutes!', 'error')
 
     template_name = 'forum/new_comment.html'
     form = CommentForm()
@@ -279,7 +252,7 @@ def like_thread(request, thread_slug):
     if isinstance(pressed, bool):
         result = {
             'success': True,
-            'likeStatus': handle_vote(user, ThreadVote, thread, pressed),
+            'likeStatus': update_like_status(user, ThreadVote, thread, pressed),
             'votes': thread.score
         }
         return HttpResponse(
@@ -288,7 +261,25 @@ def like_thread(request, thread_slug):
         )
 
 
-def handle_vote(user, VoteClass, foreign_key, has_liked):
+# Returns if the user has disliked (-1), liked (+1), or neither yet (0).
+def get_like_status(user, VoteClass, foreign_key):
+    like_status = 0
+    try:
+        kwargs = {'voter': user}
+        if isinstance(foreign_key, Thread):
+            kwargs['thread'] = foreign_key
+        else:
+            kwargs['comment'] = foreign_key
+
+        vote = VoteClass.objects.get(**kwargs)
+        like_status = 1 if vote.is_like else -1
+    except:
+        pass
+
+    return like_status
+
+
+def update_like_status(user, VoteClass, foreign_key, has_liked):
     foreign_keys = {
         ThreadVote: {
             'fk_model': Thread,
