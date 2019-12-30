@@ -6,7 +6,7 @@ function handleCommentClick(is_like, id) {
     $.ajax({
         type: "POST",
         headers: { "X-CSRFToken": token },
-        url: decodeURI('{% url 'like_comment' 26 %}'),
+        url: url,
         data: { pressed_like: is_like },
         success: function(data) {
             $(scoreID).html(data.score);

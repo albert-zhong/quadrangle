@@ -10,18 +10,10 @@ from .utils import unique_slugify
 
 
 class College(models.Model):
-    country = models.CharField(max_length=3)
-    state = models.CharField(max_length=20)
     full_name = models.CharField(max_length=70, unique=True)
     short_name = models.CharField(max_length=20, unique=True)
-    parent_school = models.ForeignKey(
-        'self',  # use 'self' instead of College
-        blank=True,
-        null=True,
-        default=None,
-        on_delete=models.CASCADE,
-    )
-
+    logo = models.ImageField(null=True, blank=True)
+    banner = models.ImageField(null=True, blank=True)
     slug = models.SlugField(unique=True)
 
     def save(self, *args, **kwargs):
@@ -36,26 +28,34 @@ class College(models.Model):
         return reverse('forum', kwargs={'college_slug': self.slug})
 
 
+class CollegeEmail(models.Model):
+    domain = models.URLField(max_length=31)
+    college = models.ForeignKey(
+        College,
+        on_delete=models.CASCADE,
+        related_name='emails'
+    )
+
+
 class Thread(models.Model):
     author = models.ForeignKey(
         get_user_model(),
         on_delete=models.SET_NULL,
-        related_name='created_posts',
+        related_name='created_threads',
         null=True,
     )
-    title = models.CharField(max_length=127)
-    body = models.CharField(max_length=2047)
-    timestamp = models.DateTimeField(default=now, editable=False)
-    edited_timestamp = models.DateTimeField(null=True)
-    score = models.IntegerField(default=0)
-
     college = models.ForeignKey(
         College,
         on_delete=models.CASCADE,
         related_name='threads',
-        null=True,
     )
 
+    title = models.CharField(max_length=127)
+    body = models.CharField(max_length=2047)
+    score = models.IntegerField(default=0)
+    timestamp = models.DateTimeField(default=now, editable=False)
+    edited_timestamp = models.DateTimeField(null=True)
+    is_anonymous = models.BooleanField(default=False)
     slug = models.SlugField(unique=True)
 
     def save(self, *args, **kwargs):
@@ -66,12 +66,7 @@ class Thread(models.Model):
         return self.slug
 
     def get_absolute_url(self):
-        return reverse(
-            'thread',
-            kwargs={
-                'thread_slug': self.slug
-            }
-        )
+        return reverse('thread', kwargs={'thread_slug': self.slug})
 
 
 class Comment(MPTTModel):
@@ -81,17 +76,18 @@ class Comment(MPTTModel):
         related_name='created_comments',
         null=True,
     )
-    body = models.CharField(max_length=511)
-    timestamp = models.DateTimeField(default=now, editable=False)
-    edited_timestamp = models.DateTimeField(null=True)
-    score = models.IntegerField(default=0)
-
-    parent_thread = models.ForeignKey(
+    thread = models.ForeignKey(
         Thread,
         on_delete=models.CASCADE,
         related_name='comments',
         null=True, # eventually make this false
     )
+
+    body = models.CharField(max_length=511)
+    score = models.IntegerField(default=0)
+    timestamp = models.DateTimeField(default=now, editable=False)
+    edited_timestamp = models.DateTimeField(null=True)
+    is_anonymous = models.BooleanField(default=False)
 
     # mptt-django fields
     parent = TreeForeignKey(
@@ -112,7 +108,7 @@ class Vote(models.Model):
         on_delete=models.CASCADE,
         related_name='%(class)s_votes',
     )
-    is_upvote = models.BooleanField()
+    is_like = models.BooleanField()
 
     class Meta:
         abstract = True

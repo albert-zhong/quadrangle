@@ -11,11 +11,10 @@ class CollegeForm(forms.ModelForm):
     class Meta:
         model = College
         fields = (
-            'country',
-            'state',
             'full_name',
             'short_name',
-            'parent_school',
+            'logo',
+            'banner',
         )
 
 
@@ -28,9 +27,7 @@ class ThreadForm(forms.ModelForm):
         super(ThreadForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_id = 'threadForm'
-        self.helper.form_class = 'createForms'
         self.helper.form_method = 'post'
-        self.helper.form_action = 'submit_thread'
         self.helper.add_input(Submit('submit', 'Submit'))
 
     class Meta:
@@ -38,6 +35,7 @@ class ThreadForm(forms.ModelForm):
         fields = (
             'title',
             'body',
+            'is_anonymous',
         )
     
     title = forms.CharField()
@@ -47,4 +45,7 @@ class ThreadForm(forms.ModelForm):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
-        fields = ('body',)
+        fields = (
+            'body',
+            'is_anonymous',
+        )

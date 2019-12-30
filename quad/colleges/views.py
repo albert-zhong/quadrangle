@@ -1,24 +1,32 @@
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_POST
 
 import json
 from .forms import ThreadForm, CommentForm
+from .messages import (
+    wrong_college_alert,
+    failed_update_alert,
+    successful_update_alert,
+    successful_delete_alert,
+    no_perms_alert,
+)
 from .models import College, Thread, Comment, ThreadVote, CommentVote
+
+
+def user_belongs(request, college):
+    if request.user.college == college or request.user.is_staff:
+        return True
+    wrong_college_alert(request)
+    return False
 
 
 @login_required
 def view_forum(request, college_slug):
     college = get_object_or_404(College, slug=college_slug)
-    user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
     template_name = 'forum/forum.html'
@@ -36,12 +44,7 @@ def create_thread(request, college_slug):
     college = get_object_or_404(College, slug=college_slug)
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
     if request.method == 'POST':
@@ -49,23 +52,16 @@ def create_thread(request, college_slug):
         if form.is_valid():
             new_thread = Thread(
                 author=user,
+                college=college,
                 title=form.cleaned_data['title'],
                 body=form.cleaned_data['body'],
-                college=college,
+                is_anonymous=form.cleaned_data['is_anonymous'],
             )
             new_thread.save()
-            messages.success(
-                request,
-                'New thread successfully made!',
-                extra_tags='alert-success'
-            )
+            successful_update_alert(request, 'thread')
             return redirect(new_thread)
         else:
-            messages.warning(
-                request,
-                'Sorry, something went wrong with making that thread!',
-                extra_tags='alert-warning'
-            )
+            failed_update_alert(request, 'thread')
             return redirect(college)
 
     template_name = 'forum/new_thread.html'
@@ -84,12 +80,7 @@ def view_thread(request, thread_slug):
     college = thread.college
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
     comments = thread.comments.all()
@@ -99,28 +90,35 @@ def view_thread(request, thread_slug):
         'college': college,
         'thread': thread,
         'comments': comments,
-        'initial_like_status': get_like_status(user, thread, ThreadVote),
+        'initial_like_status': get_like_status(user, ThreadVote, thread),
     }
 
     return render(request, template_name, context)
 
 
-# helper function to see if the user has like/disliked the thread/comment.
-# Vote object doesn't exist --> user hasn't voted --> like_status = 0
-# Vote object exists, is_upvote=True --> user has liked --> like_status = 1
-# Vote object exists, is_upvote=False --> user has disliked --> like_status = -1
-def get_like_status(user, thread, vote_class):
+# Returns if the user has disliked (-1), liked (+1), or neither yet (0).
+def get_like_status(user, VoteClass, foreign_key):
     like_status = 0
     try:
-        vote = vote_class.objects.get(
-            voter=user,
-            thread=thread
-        )
-        like_status = 1 if vote.is_upvote else -1
+        kwargs = {'voter': user}
+        if isinstance(foreign_key, ThreadVote):
+            kwargs['thread'] = foreign_key
+        else:
+            kwargs['comment'] = foreign_key
+
+        vote = VoteClass.objects.get(**kwargs)
+        like_status = 1 if vote.is_like else -1
     except:
         pass
 
     return like_status
+
+
+def user_owns(request, author):
+    if request.user == author or request.user.is_staff:
+        return True
+    no_perms_alert(request)
+    return False
 
 
 @login_required
@@ -132,30 +130,16 @@ def delete_thread(request, thread_slug):
     college = thread.college
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
     author = thread.author
-    if not user == author and not user.is_staff:
-        messages.warning(
-            request,
-            'You can only delete your own threads!',
-            extra_tags='alert-warning'
-        )
+    if not user_owns(request, author):
         return redirect(thread)
         
     if request.method == 'POST':
         thread.delete()
-        messages.success(
-            request,
-            'Your thread has successfully been deleted!',
-            extra_tags='alert-success'
-        )
+        successful_delete_alert(request, model_name='thread')
         return redirect(college)
 
     template_name = 'forum/delete_thread.html'
@@ -176,21 +160,11 @@ def edit_thread(request, thread_slug):
     college = thread.college
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
     author = thread.author
-    if not user == author and not user.is_staff:
-        messages.warning(
-            request,
-            'You can only edit your own threads!',
-            extra_tags='alert-warning'
-        )
+    if not user_owns(request, author):
         return redirect(thread)
         
     if request.method == 'POST':
@@ -199,18 +173,10 @@ def edit_thread(request, thread_slug):
             thread.title = form.cleaned_data['title']
             thread.body = form.cleaned_data['body']
             thread.save()
-            messages.success(
-                request,
-                'Thread successfully updated!',
-                extra_tags='alert-success'
-            )
+            successful_update_alert(request, 'thread')
             return redirect(thread)
         else:
-            messages.warning(
-                request,
-                'Sorry, something went wrong with editing that thread!',
-                extra_tags='alert-warning'
-            )
+            failed_update_alert(request, 'thread')
 
     template_name = 'forum/new_thread.html'
 
@@ -235,12 +201,7 @@ def create_comment(request, thread_slug):
     college = thread.college
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
     if request.method == 'POST':
@@ -248,17 +209,15 @@ def create_comment(request, thread_slug):
         if form.is_valid():
             new_comment = Comment(
                 author=user,
+                thread=thread,
                 body=form.cleaned_data['body'],
-                parent_thread=thread,
+                is_anonymous=form.cleaned_data['is_anonymous'],
             )
-            # timestamp, score, and slug are automatically generated in models.py
             new_comment.save()
-            success_url = thread.get_absolute_url()
-            return redirect(success_url)
+            successful_update_alert(request, 'comment')
+            return redirect(thread)
         else:
-            msg = """ Sorry, something went with trying to make a comment!
-                Please try again in a few minutes """
-            messages.error(request, msg, extra_tags='alert-warning')
+            failed_update_alert(request, 'comment')
 
     template_name = 'forum/new_comment.html'
     form = CommentForm()
@@ -273,16 +232,11 @@ def reply_comment(request, comment_pk):
         Comment.objects.select_related('parent_thread__college'),
         pk=comment_pk
     )
-    thread = parent_comment.parent_thread
+    thread = parent_comment.thread
     college = thread.college
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
     if request.method == 'POST':
@@ -290,17 +244,16 @@ def reply_comment(request, comment_pk):
         if form.is_valid():
             new_comment = Comment(
                 author=user,
+                thread=thread,
                 body=form.cleaned_data['body'],
-                parent_thread=thread,
+                is_anonymous=form.cleaned_data['is_anonymous'],
                 parent=parent_comment
             )
             new_comment.save()
-            success_url = thread.get_absolute_url()
-            return redirect(success_url)
+            successful_update_alert(request, 'comment')
+            return redirect(thread)
         else:
-            msg = """ Sorry, something went with trying to make a comment!
-                Please try again in a few minutes. """
-            messages.error(request, msg, extra_tags='alert-warning')
+            failed_update_alert(request, 'comment')
 
     template_name = 'forum/new_comment.html'
     form = CommentForm()
@@ -310,6 +263,7 @@ def reply_comment(request, comment_pk):
 
 
 @login_required
+@require_POST
 def like_thread(request, thread_slug):
     thread = get_object_or_404(
         Thread.objects.select_related('college'),
@@ -318,163 +272,102 @@ def like_thread(request, thread_slug):
     college = thread.college
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
-    if request.method == 'POST':
-        # if pressed == True, the like button was pressed.
-        # if pressed = False, the dislike button was pressed.
-        pressed = json.loads(request.POST['pressed'])
-        if not isinstance(pressed, bool):
-            msg = """ Sorry, something went wrong with trying to like the post!
-                Please try again in a few minutes. """
-            messages.error(request, msg, extra_tags='alert-error')
-        else:
-            result = {
-                'success': True,
-                'likeStatus': handle_thread_like(user, thread, pressed),
-                'votes': thread.score
-            }
-            return HttpResponse(
-                json.dumps(result),
-                content_type='application/json'
-            )
+    pressed = json.loads(request.POST['pressed'])
+    if isinstance(pressed, bool):
+        result = {
+            'success': True,
+            'likeStatus': handle_vote(user, ThreadVote, thread, pressed),
+            'votes': thread.score
+        }
+        return HttpResponse(
+            json.dumps(result),
+            content_type='application/json'
+        )
 
 
-def handle_thread_like(voter, thread, pressed):
-    # Takes a voter (User object), thread, and a pressed (boolean value for
-    # if like or dislike was pressed). Returns the resultant like_status state:
-    # -1 means disliked, 0 means neutral, and +1 means liked. THIS IS NOT A 
-    # PURE FUNCTION--it will appropiately update thread.score and either add,
-    # delete, or modify a vote object.
-    
+def handle_vote(user, VoteClass, foreign_key, has_liked):
+    foreign_keys = {
+        ThreadVote: {
+            'fk_model': Thread,
+            'fk_string': 'thread',
+        },
+        CommentVote: {
+            'fk_model': Comment,
+            'fk_string': 'comment',
+        }
+    }
+    if VoteClass not in foreign_keys:
+        raise ValueError('Incorrect vote_class')
+    if not isinstance(foreign_key, foreign_keys[VoteClass]['fk_model']):
+        raise ValueError('Incorrect foreign key for that vote')
+
     try:
-        curr_vote = ThreadVote.objects.get(voter=voter, thread=thread)
-        if curr_vote.is_upvote:
-            if pressed:  # case: hit like once, hit like again to toggle
+        fk_string = foreign_keys[VoteClass]['fk_string']
+        kwargs = {
+            'voter': user,
+            fk_string: foreign_key,
+        }
+        curr_vote = VoteClass.objects.get(**kwargs)
+        if curr_vote.is_like:
+            if has_liked:  # case: hit like once, hit like again to toggle
                 like_status = 0
-                thread.score -= 1
+                foreign_key.score -= 1
                 curr_vote.delete()
             else:  # case: hit like once, hit dislike
                 like_status = -1
-                curr_vote.is_upvote = False
+                curr_vote.is_like = False
                 curr_vote.save()
-                thread.score -= 2
+                foreign_key.score -= 2
         else:
-            if pressed:  # case: hit dislike once, hit like
+            if has_liked:  # case: hit dislike once, hit like
                 like_status = 1
-                curr_vote.is_upvote = True
+                curr_vote.is_like = True
                 curr_vote.save()
-                thread.score += 2
+                foreign_key.score += 2
             else:  # case: hit dislike once, hit dislike again to toggle
                 like_status= 0
-                thread.score += 1
+                foreign_key.score += 1
                 curr_vote.delete()
-    except ThreadVote.DoesNotExist:
-        new_vote = ThreadVote(
-            voter=voter,
-            is_upvote=pressed,
-            thread=thread
-        )
+    except VoteClass.DoesNotExist:
+        kwargs['is_like'] = has_liked
+        new_vote = VoteClass(**kwargs)
         new_vote.save()
-        if pressed:  # case: hit like once
+        if has_liked:  # case: hit like once
             like_status = 1
-            thread.score += 1
+            foreign_key.score += 1
         else:  # case: hit dislike once
             like_status = -1
-            thread.score -= 1
+            foreign_key.score -= 1
 
-    thread.save()
+    foreign_key.save()
     return like_status
 
 
 @login_required
+@require_POST
 def like_comment(request, comment_pk):
     comment = get_object_or_404(
-        Comment.objects.select_related('parent_thread__college'),
+        Comment.objects.select_related('thread__college'),
         pk=comment_pk
     )
-    thread = comment.parent_thread
+    thread = comment.thread
     college = thread.college
     user = request.user
 
-    if not user.college == college and not user.is_staff:
-        messages.warning(
-            request,
-            'You do not belong to this college.',
-            extra_tags='alert-warning'
-        )
+    if not user_belongs(request, college):
         return redirect('home')
 
-    if request.method == 'POST':
-        pressed_like = json.loads(request.POST['pressed_like'])
-        if not isinstance(pressed_like, bool):
-            msg = """ Sorry, something went wrong with trying to like the
-                comment! Please try again in a few minutes. """
-            messages.error(request, msg, extra_tags='alert-error')
-        else:
-            result = {
-                'success': True,
-                'likeStatus': handle_comment_like(user, comment, pressed_like),
-                'score': comment.score
-            }
-            return HttpResponse(
-                json.dumps(result),
-                content_type='application/json'
-            )
-
-
-def handle_comment_like(voter, comment, pressed_like):
-    vote = get_vote(voter=voter, vote_class=CommentVote, foreign_key=comment)
-    # if user hasn't voted, then the returned vote from get_vote() would
-    # not be commited to the database yet, and not have a primary key yet
-    like_status = 0
-    if vote.pk is not None:
-        like_status = 1 if vote.is_upvote else -1
-
-    if like_status == -1:
-        if pressed_like:  # switches from dislike to like
-            vote.is_upvote = True
-            vote.save()
-            comment.score += 2
-            like_status = 1
-        else:  # toggles off dislike
-            vote.delete()
-            comment.score += 1
-            like_status = 0
-    elif like_status == 0:  # like or dislikes for the first time
-        vote.is_upvote = pressed_like
-        vote.save()
-        comment.score = comment.score + 1 if pressed_like else comment.score - 1
-        like_status = 1 if pressed_like else -1
-    elif like_status == 1:
-        if pressed_like:  # toggles off like
-            vote.delete()
-            comment.score -= 1
-            like_status = 0
-        else:  # switches from like to dislike
-            vote.is_upvote = False
-            vote.save()
-            comment.score -= 2
-            like_status = -1
-    
-    comment.save()
-    return like_status
-
-
-def get_vote(voter, vote_class, foreign_key):
-    vote_class_kwargs = {'voter': voter}
-    vote_class_kwargs['comment'] = foreign_key
-
-    try:
-        curr_vote = vote_class.objects.get(**vote_class_kwargs)
-        return curr_vote
-    except vote_class.DoesNotExist:
-        vote_class_kwargs['is_upvote'] = True
-        new_vote = vote_class(**vote_class_kwargs)
-        return new_vote
+    pressed_like = json.loads(request.POST['pressed_like'])
+    if isinstance(pressed_like, bool):
+        result = {
+            'success': True,
+            'likeStatus': handle_vote(user, CommentVote, comment, pressed_like),
+            'score': comment.score
+        }
+        return HttpResponse(
+            json.dumps(result),
+            content_type='application/json'
+        )
