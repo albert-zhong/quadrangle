@@ -56,7 +56,7 @@ def create_thread(request, college_slug):
                 is_anonymous=form.cleaned_data['is_anonymous'],
             )
             new_thread.save()
-            alert(request, 'Thread successfully created!')
+            alert(request, 'Thread successfully created!', 'success')
             return redirect(new_thread)
         else:
             alert(request, 'Something went wrong with creating that thread. ' +
@@ -83,12 +83,28 @@ def view_thread(request, thread_slug):
 
     comments = thread.comments.all()
 
+    comment_like_statuses = {}
+    for comment in comments:
+        comment_like_statuses[comment.pk] = {
+            'score': comment.score,
+            'likeStatus': 0
+        }
+
+    for vote in user.commentvote_votes.prefetch_related('voter'):
+        comment_pk = vote.comment.pk
+        if comment_pk in comment_like_statuses:
+            if vote.is_like:
+                comment_like_statuses[comment_pk]['likeStatus'] = 1
+            else:
+                comment_like_statuses[comment_pk]['likeStatus'] = -1
+
     template_name = 'forum/thread.html'
     context = {
         'college': college,
         'thread': thread,
         'comments': comments,
-        'initial_like_status': get_like_status(user, ThreadVote, thread),
+        'thread_like_status': get_like_status(user, ThreadVote, thread),
+        'comment_like_statuses': comment_like_statuses
     }
 
     return render(request, template_name, context)
@@ -127,14 +143,10 @@ def delete_thread(request, thread_slug):
 @login_required
 def edit_thread(request, thread_slug):
     thread = get_object_or_404(
-        Thread.objects.select_related('college', 'author'),
+        Thread.objects.select_related('author'),
         slug=thread_slug
     )
-    college = thread.college
     user = request.user
-
-    if not user_belongs(request, college):
-        return redirect('home')
 
     author = thread.author
     if not user_owns(request, author):
@@ -185,6 +197,8 @@ def create_comment(request, thread_slug):
                 is_anonymous=form.cleaned_data['is_anonymous'],
             )
             new_comment.save()
+            thread.comments_count += 1
+            thread.save()
             alert(request, 'Comment successfully created!', 'success')
             return redirect(thread)
         else:
@@ -201,7 +215,7 @@ def create_comment(request, thread_slug):
 @login_required
 def reply_comment(request, comment_pk):
     parent_comment = get_object_or_404(
-        Comment.objects.select_related('parent_thread__college'),
+        Comment.objects.select_related('thread__college'),
         pk=comment_pk
     )
     thread = parent_comment.thread
@@ -222,6 +236,8 @@ def reply_comment(request, comment_pk):
                 parent=parent_comment
             )
             new_comment.save()
+            thread.comments_count += 1
+            thread.save()
             alert(request, 'Comment successfully created!', 'success')
             return redirect(thread)
         else:
@@ -230,6 +246,38 @@ def reply_comment(request, comment_pk):
 
     template_name = 'forum/new_comment.html'
     form = CommentForm()
+    context = {'form': form}
+
+    return render(request, template_name, context)
+
+
+@login_required
+def edit_comment(request, comment_pk):
+    comment = get_object_or_404(
+        Comment.objects.select_related('author', 'thread'),
+        pk=comment_pk
+    )
+    author = comment.author
+    thread = comment.thread
+    user = request.user
+
+    if user != comment.author:
+        alert(request, 'You can only edit your own comments!', 'warning')
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment.body = form.cleaned_data['body']
+            comment.save()
+            alert(request, 'Comment successfully updated!', 'success')
+            return redirect(thread)
+        else:
+            alert(request, 'Something went wrong with creating that comment. ' +
+                'Please try again in a few minutes!', 'error')
+
+    template_name = 'forum/new_comment.html'
+    form = CommentForm(initial={'body': comment.body})
     context = {'form': form}
 
     return render(request, template_name, context)
@@ -247,18 +295,18 @@ def like_thread(request, thread_slug):
 
     if not user_belongs(request, college):
         return redirect('home')
+    
+    has_liked = json.loads(request.POST['hasLiked'])
+    data = {'success': False}
 
-    pressed = json.loads(request.POST['pressed'])
-    if isinstance(pressed, bool):
-        result = {
+    if isinstance(has_liked, bool):
+        data = {
             'success': True,
-            'likeStatus': update_like_status(user, ThreadVote, thread, pressed),
-            'votes': thread.score
+            'likeStatus': update_like_status(user, ThreadVote, thread, has_liked),
+            'newScore': thread.score
         }
-        return HttpResponse(
-            json.dumps(result),
-            content_type='application/json'
-        )
+
+    return HttpResponse(json.dumps(data), content_type='application/json')
 
 
 # Returns if the user has disliked (-1), liked (+1), or neither yet (0).
@@ -351,12 +399,12 @@ def like_comment(request, comment_pk):
     if not user_belongs(request, college):
         return redirect('home')
 
-    pressed_like = json.loads(request.POST['pressed_like'])
-    if isinstance(pressed_like, bool):
+    has_liked = json.loads(request.POST['hasLiked'])
+    if isinstance(has_liked, bool):
         result = {
             'success': True,
-            'likeStatus': handle_vote(user, CommentVote, comment, pressed_like),
-            'score': comment.score
+            'likeStatus': update_like_status(user, CommentVote, comment, has_liked),
+            'newScore': comment.score
         }
         return HttpResponse(
             json.dumps(result),

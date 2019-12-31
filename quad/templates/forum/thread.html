@@ -1,26 +1,48 @@
 {% extends 'layout/base.html' %}
+{% load humanize %}
 {% block title %}Quadrangle | {{ thread.title }}{% endblock title %}
 {% block content %}
-<ol class="breadcrumb">
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-    <li class="breadcrumb-item active"><a href="{% url 'forum' college.slug %}">{{ college.short_name }}</a></li>
-</ol>
-<div class="card">
+    <li class="breadcrumb-item"><a href="{% url 'home' %}">Forums</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'forum' college.slug %}">{{ college.full_name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Thread</li>
+  </ol>
+</nav>
+<div class="card border-dark mb-3">
     <div class="card-header">
-        <b>Author: </b> {{ thread.author }} • posted at {{ thread.timestamp }}
+        <span class="float-left">
+            {{ college.full_name }} • {{ thread.author }} 
+        </span>
+        <span class="float-right">
+            <strong>{{ thread.timestamp|naturaltime }}</strong> ({{ thread.timestamp }})
+        </span>
     </div>
     <div class="card-body">
         <h2 class="card-title">{{ thread.title }}</h2>
         <p class="card-text">{{ thread.body }}</p>
     </div>
     <div class="card-footer">
-        {% include 'forum/like.html' %}
+        <span class="float-left">
+            <button id="thread-score" class="btn btn-secondary">Score: {{ thread.score }}</button>
+            <button id="like-thread-button" class="btn btn-success" onclick="handleThreadClick(hasLiked=true)">👍</button>
+            <button id="dislike-thread-button" class="btn btn-danger" onclick="handleThreadClick(hasLiked=false)">👎</button>
+        </span>
+        <span class="float-right">
+            <a class="btn btn-primary" href="{% url 'new_comment' thread.slug %}">✏️ New comment</a>
+            {% if thread.author == user %}
+                <a class="btn btn-info" href="{% url 'edit_thread' thread.slug %}">Edit</a>
+                <a class="btn btn-danger" href="{% url 'delete_thread' thread.slug %}">Delete</a>
+            {% endif %}
+        </span>
     </div>
 </div>
-{% if thread.author == user %}
-    <a class="btn btn-danger" href="{% url 'delete_thread' thread.slug %}">Delete thread</a>
-    <a class="btn btn-info" href="{% url 'edit_thread' thread.slug %}">Edit thread</a>
-{% endif %}
-<a class="btn btn-info btn-lg" href="{% url 'new_comment' thread.slug %}">New comment</a>
+<h4>Comments ({{ thread.comments_count }})</h4>
 {% include 'forum/comment.html' %}
 {% endblock content %}
+{% block js %}
+    <script type="text/javascript">
+        {% include 'forum/score.js' %}
+    </script>
+{% endblock js %}

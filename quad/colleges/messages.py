@@ -16,6 +16,6 @@ def get_tags(color):
     return f"alert alert-{color} alert-dismissible fade show"
 
 def alert(request, message, color):
-    if type not in COLORS_FUNCTIONS:
-        raise ValueError('Incorrect message type')
-    COLORS_FUNCTIONS[type](request, message, extra_tags=get_tags(color))
+    if color not in COLORS_FUNCTIONS:
+        raise ValueError('Incorrect message color')
+    COLORS_FUNCTIONS[color](request, message, extra_tags=get_tags(color))

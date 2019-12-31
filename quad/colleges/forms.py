@@ -49,3 +49,5 @@ class CommentForm(forms.ModelForm):
             'body',
             'is_anonymous',
         )
+
+    body = forms.CharField(widget=forms.Textarea)

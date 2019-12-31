@@ -1,20 +1,32 @@
 {% load mptt_tags %}
+{% load humanize %}
 {% recursetree comments %}
 <div class="card">
-    <div class="card-header">
-        {{ node.author }} | {% include 'forum/like_comment.html' %}
-    </div>
     <div class="card-body">
-        <p class="card-text">{{ node.body }}</p>
+        <div class="row">
+            <div class="col-0">
+                <button id="like-comment-button-{{ node.pk }}" class="btn btn-outline-success btn-sm" onclick="handleCommentClick(hasLiked=true, pk={{ node.pk }})">👍</button>
+                <br />
+                <button id="dislike-comment-button-{{ node.pk }}" class="btn btn-outline-danger btn-sm" onclick="handleCommentClick(hasLiked=false, pk={{ node.pk }})">👎</button>
+            </div>
+            <div class="col-11">
+                <h6 class="card-subtitle mb-2 text-muted">
+                    {{ node.author }} • <span title="{{ node.timestamp }}">{{ thread.timestamp|naturaltime }}</span> • <strong id="comment-score-{{ node.pk }}">{{ node.score }} points</strong>
+                </h6>
+                <p class="card-text">{{ node.body }}</p>
+                <h6 class="card-subtitle mb-2 text-muted">
+                    <a href="{% url 'reply_comment' node.pk %}">Reply</a>
+                    {% if node.author == user %}
+                        • <a href="{% url 'edit_comment' node.pk %}">Edit</a>
+                    {% endif %}
+                </h6>
+            </div>
+        </div>
     </div>
-    <div class="card-footer">
-        <a href="{% url 'reply_comment' node.pk %}">Reply to this comment</a> | posted at {{ node.timestamp }}
-        {% if not node.is_leaf_node %}
+    {% if not node.is_leaf_node %}
+        <div class="card-footer">
             {{ children }}
-        {% endif %}
-    </div>
+        </div>
+    {% endif %}
 </div>
 {% endrecursetree %}
-<script defer="defer">
-    {% include 'forum/likeComment.js' %}
-</script>

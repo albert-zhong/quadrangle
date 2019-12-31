@@ -56,6 +56,9 @@ class Thread(models.Model):
     timestamp = models.DateTimeField(default=now, editable=False)
     edited_timestamp = models.DateTimeField(null=True)
     is_anonymous = models.BooleanField(default=False)
+
+    hits = models.IntegerField(default=0)
+    comments_count = models.IntegerField(default=0)
     slug = models.SlugField(unique=True)
 
     def save(self, *args, **kwargs):
