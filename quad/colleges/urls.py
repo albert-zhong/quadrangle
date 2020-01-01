@@ -28,3 +28,4 @@ urlpatterns = [
     path('comments/<int:comment_pk>/reply', reply_comment, name='reply_comment'),
     path('comments/<int:comment_pk>/like', like_comment, name='like_comment'),
 ]
+

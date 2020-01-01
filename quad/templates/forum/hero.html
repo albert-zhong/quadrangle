@@ -1,0 +1,14 @@
+{% if college.logo %}
+    <div class="row" style="padding: 16px;">
+        <img
+            src="{{ college.logo.url }}"
+            alt="{{ college.full_name}}"
+            width="64"
+            height="64"
+            style="float: left;"
+        >
+        <h1><a href="{% url 'forum' college.slug %}">{{ college.full_name }}</a></h1>
+    </div>
+{% else %}
+    <h1><a href="{% url 'forum' college.slug %}">{{ college.full_name }}</a></h1>
+{% endif %}

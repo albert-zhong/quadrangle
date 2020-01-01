@@ -2,33 +2,30 @@
 {% load dict_tags %}
 {% block title %}Quadrangle | {{ college.short_name }}{% endblock title %}
 {% block content %}
-<nav aria-label="breadcrumb">
-<ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-    <li class="breadcrumb-item"><a href="{% url 'home' %}">Forums</a></li>
-    <li class="breadcrumb-item active" aria-current="page">{{ college.full_name }}</li>
-</ol>
-</nav>
-<h2>{{ college.full_name }}</h2>
-<a href="{% url 'new_thread' college.slug %}" class="btn btn-primary btn-lg">Create new thread</a>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Score</th>
-            <th>Author</th>
-            <th>Title</th>
-            <th>Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for thread in threads %}
-        <tr>
-            <th>{{ thread.score }}</th>
-            <th>{{ names|get_item:thread.slug }}</th>
-            <th><a href="{% url 'thread' thread.slug %}">{{ thread.title }}</a></th>
-            <th>{{ thread.timestamp }}</th>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% include 'forum/hero.html' %}
+<div class="row">
+    <a href="{% url 'new_thread' college.slug %}" class="btn btn-primary btn-lg">Create new thread</a>
+</div>
+<div class="row">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Score</th>
+                <th>Author</th>
+                <th>Title</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for thread in threads %}
+            <tr>
+                <th>{{ thread.score }}</th>
+                <th>{{ names|get_item:thread.slug }}</th>
+                <th><a href="{% url 'thread' thread.slug %}">{{ thread.title }}</a></th>
+                <th>{{ thread.timestamp }}</th>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock content %}

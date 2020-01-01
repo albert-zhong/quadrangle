@@ -12,8 +12,8 @@ from .utils import unique_slugify
 class College(models.Model):
     full_name = models.CharField(max_length=70, unique=True)
     short_name = models.CharField(max_length=20, unique=True)
-    logo = models.ImageField(null=True, blank=True)
-    banner = models.ImageField(null=True, blank=True)
+    logo = models.ImageField(null=True, blank=True, upload_to='images/')
+    banner = models.ImageField(null=True, blank=True, upload_to='images/')
     slug = models.SlugField(unique=True)
 
     def save(self, *args, **kwargs):

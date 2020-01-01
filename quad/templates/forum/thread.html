@@ -2,14 +2,7 @@
 {% load humanize %}
 {% block title %}Quadrangle | {{ thread.title }}{% endblock title %}
 {% block content %}
-<nav aria-label="breadcrumb">
-  <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
-    <li class="breadcrumb-item"><a href="{% url 'home' %}">Forums</a></li>
-    <li class="breadcrumb-item"><a href="{% url 'forum' college.slug %}">{{ college.full_name }}</a></li>
-    <li class="breadcrumb-item active" aria-current="page">Thread</li>
-  </ol>
-</nav>
+{% include 'forum/hero.html' %}
 {% include 'forum/thread_post.html' %}
 <h4>Comments ({{ thread.comments_count }})</h4>
 {% include 'forum/comment.html' %}
