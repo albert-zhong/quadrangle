@@ -1,4 +1,5 @@
 {% extends 'layout/base.html' %}
+{% load dict_tags %}
 {% block title %}Quadrangle | {{ college.short_name }}{% endblock title %}
 {% block content %}
 <nav aria-label="breadcrumb">
@@ -23,7 +24,7 @@
         {% for thread in threads %}
         <tr>
             <th>{{ thread.score }}</th>
-            <th>{{ thread.author }}</th>
+            <th>{{ names|get_item:thread.slug }}</th>
             <th><a href="{% url 'thread' thread.slug %}">{{ thread.title }}</a></th>
             <th>{{ thread.timestamp }}</th>
         </tr>

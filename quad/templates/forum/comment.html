@@ -1,4 +1,5 @@
 {% load mptt_tags %}
+{% load dict_tags %}
 {% load humanize %}
 {% recursetree comments %}
 <div class="card">
@@ -11,7 +12,8 @@
             </div>
             <div class="col-11">
                 <h6 class="card-subtitle mb-2 text-muted">
-                    {{ node.author }} • <span title="{{ node.timestamp }}">{{ thread.timestamp|naturaltime }}</span> • <strong id="comment-score-{{ node.pk }}">{{ node.score }} points</strong>
+                    {{ names|get_item:node.pk }}
+                    • <span title="{{ node.timestamp }}">{{ thread.timestamp|naturaltime }}</span> • <strong id="comment-score-{{ node.pk }}">{{ node.score }} points</strong>
                 </h6>
                 <p class="card-text">{{ node.body }}</p>
                 <h6 class="card-subtitle mb-2 text-muted">

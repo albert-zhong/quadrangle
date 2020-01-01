@@ -2,9 +2,5 @@
 {% block title %}Quadrangle | new comment{% endblock title %}
 {% load crispy_forms_tags %}
 {% block content %}
-<form action="" method="post">
-    {% csrf_token %}
-    {{ form|crispy }}
-    <button class="btn btn-success ml-2" type="submit">Save</button>
-</form>
+{% crispy form %}
 {% endblock content %}

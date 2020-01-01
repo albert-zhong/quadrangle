@@ -105,6 +105,17 @@ class Comment(MPTTModel):
         order_insertion_by = ['-score']
 
 
+class AnonymousName(models.Model):
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE
+    )
+    thread = models.ForeignKey(
+        Thread,
+        on_delete=models.CASCADE
+    )
+
+
 class Vote(models.Model):
     voter = models.ForeignKey(
         get_user_model(),

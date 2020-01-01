@@ -10,12 +10,12 @@ from .models import College, Thread, Comment
 class CollegeForm(forms.ModelForm):
     class Meta:
         model = College
-        fields = (
+        fields = [
             'full_name',
             'short_name',
             'logo',
             'banner',
-        )
+        ]
 
 
 class CollegeAdmin(ModelAdmin):
@@ -32,17 +32,33 @@ class ThreadForm(forms.ModelForm):
 
     class Meta:
         model = Thread
-        fields = (
+        fields = [
             'title',
             'body',
             'is_anonymous',
-        )
+        ]
     
-    title = forms.CharField()
     body = forms.CharField(widget=forms.Textarea)
 
 
+# Removes 'is_anonymous' field
+class ThreadEditForm(ThreadForm):
+    class Meta:
+        model = Thread
+        fields = [
+            'title',
+            'body',
+        ]
+
+
 class CommentForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super(CommentForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'commentForm'
+        self.helper.form_method = 'post'
+        self.helper.add_input(Submit('submit', 'Submit'))
+
     class Meta:
         model = Comment
         fields = (
@@ -51,3 +67,10 @@ class CommentForm(forms.ModelForm):
         )
 
     body = forms.CharField(widget=forms.Textarea)
+
+
+# Removes 'is_anonymous' field
+class CommentEditForm(CommentForm):
+    class Meta:
+        model = Comment
+        fields = ['body']    

@@ -4,9 +4,16 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
 import json
-from .forms import ThreadForm, CommentForm
+from .forms import ThreadForm, ThreadEditForm, CommentForm, CommentEditForm
 from .messages import alert
-from .models import College, Thread, Comment, ThreadVote, CommentVote
+from .models import (
+    College,
+    Thread,
+    Comment,
+    ThreadVote,
+    CommentVote,
+    AnonymousName,
+)
 
 
 def user_belongs(request, college):
@@ -28,10 +35,12 @@ def view_forum(request, college_slug):
         return redirect('home')
 
     template_name = 'forum/forum.html'
-    threads = college.threads.all()
+    threads = college.threads.all().select_related('author')
+    names = {thread.slug: get_display_name(thread) for thread in threads}
     context = {
         'college': college,
         'threads': threads,
+        'names': names,
     }
 
     return render(request, template_name, context)
@@ -56,6 +65,7 @@ def create_thread(request, college_slug):
                 is_anonymous=form.cleaned_data['is_anonymous'],
             )
             new_thread.save()
+            AnonymousName.objects.get_or_create(user=user, thread=new_thread)
             alert(request, 'Thread successfully created!', 'success')
             return redirect(new_thread)
         else:
@@ -67,7 +77,7 @@ def create_thread(request, college_slug):
     context = {'form': form}
 
     return render(request, template_name, context)
-
+    
 
 @login_required
 def view_thread(request, thread_slug):
@@ -75,39 +85,57 @@ def view_thread(request, thread_slug):
         Thread.objects.select_related('college'),
         slug=thread_slug
     )
+    author = thread.author
     college = thread.college
     user = request.user
 
     if not user_belongs(request, college):
         return redirect('home')
 
-    comments = thread.comments.all()
+    # Preprocesses author display names for comments and thread
+    # Names maps every comment PK or 'thread' to its corresponding display name
+    anons = AnonymousName.objects.filter(thread=thread)
+    anon_names = {anon.user: f'[anonymous {anon.id}]' for anon in anons}
+    comments = thread.comments.all().select_related('author')
+    names = {
+        comment.pk: get_display_name(post=comment, anon_names=anon_names) for comment in comments
+    }
+    names['thread'] = get_display_name(post=thread, anon_names=anon_names)
 
-    comment_like_statuses = {}
-    for comment in comments:
-        comment_like_statuses[comment.pk] = {
-            'score': comment.score,
-            'likeStatus': 0
-        }
+    comment_like_statuses = {
+        comment.pk: {'score': comment.score, 'likeStatus': 0} for comment in comments
+    }
 
     for vote in user.commentvote_votes.prefetch_related('voter'):
-        comment_pk = vote.comment.pk
-        if comment_pk in comment_like_statuses:
-            if vote.is_like:
-                comment_like_statuses[comment_pk]['likeStatus'] = 1
-            else:
-                comment_like_statuses[comment_pk]['likeStatus'] = -1
+        pk = vote.comment.pk
+        is_like = vote.is_like
+        if pk in comment_like_statuses:
+            comment_like_statuses[pk]['likeStatus'] = 1 if is_like else -1
 
     template_name = 'forum/thread.html'
     context = {
         'college': college,
         'thread': thread,
+        'names': names,
         'comments': comments,
         'thread_like_status': get_like_status(user, ThreadVote, thread),
         'comment_like_statuses': comment_like_statuses
     }
 
     return render(request, template_name, context)
+
+
+def get_display_name(post, anon_names={}):
+    author = post.author
+
+    if not author:
+        return '[deleted]'
+    elif post.is_anonymous:
+        if author in anon_names:
+            return anon_names[author]
+        return '[anonymous]'
+    
+    return author
 
 
 @login_required
@@ -127,7 +155,10 @@ def delete_thread(request, thread_slug):
         return redirect(thread)
         
     if request.method == 'POST':
-        thread.delete()
+        thread.author = None
+        thread.title = '[deleted]'
+        thread.body = '[deleted]'
+        thread.save()
         alert(request, 'Thread successfully deleted', 'success')
         return redirect(college)
 
@@ -153,7 +184,7 @@ def edit_thread(request, thread_slug):
         return redirect(thread)
         
     if request.method == 'POST':
-        form = ThreadForm(request.POST)
+        form = ThreadEditForm(request.POST)
         if form.is_valid():
             thread.title = form.cleaned_data['title']
             thread.body = form.cleaned_data['body']
@@ -169,7 +200,7 @@ def edit_thread(request, thread_slug):
         'title': thread.title,
         'body': thread.body,
     }
-    form = ThreadForm(initial=initial_values)
+    form = ThreadEditForm(initial=initial_values)
     context = {'form': form}
 
     return render(request, template_name, context)
@@ -197,6 +228,7 @@ def create_comment(request, thread_slug):
                 is_anonymous=form.cleaned_data['is_anonymous'],
             )
             new_comment.save()
+            AnonymousName.objects.get_or_create(user=user, thread=thread)
             thread.comments_count += 1
             thread.save()
             alert(request, 'Comment successfully created!', 'success')
@@ -266,7 +298,7 @@ def edit_comment(request, comment_pk):
         return redirect('home')
 
     if request.method == 'POST':
-        form = CommentForm(request.POST)
+        form = CommentEditForm(request.POST)
         if form.is_valid():
             comment.body = form.cleaned_data['body']
             comment.save()
@@ -277,7 +309,7 @@ def edit_comment(request, comment_pk):
                 'Please try again in a few minutes!', 'error')
 
     template_name = 'forum/new_comment.html'
-    form = CommentForm(initial={'body': comment.body})
+    form = CommentEditForm(initial={'body': comment.body})
     context = {'form': form}
 
     return render(request, template_name, context)
