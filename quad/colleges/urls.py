@@ -8,6 +8,7 @@ from .views import (
     delete_thread,
     create_comment,
     edit_comment,
+    delete_comment,
     reply_comment,
     like_thread,
     like_comment,
@@ -23,6 +24,7 @@ urlpatterns = [
     path('thread/<slug:thread_slug>/like', like_thread, name='like_thread'),
     path('comments/<slug:thread_slug>/new', create_comment, name='new_comment'),
     path('comments/<int:comment_pk>/edit', edit_comment, name='edit_comment'),
+    path('comments/<int:comment_pk>/delete', delete_comment, name='delete_comment'),
     path('comments/<int:comment_pk>/reply', reply_comment, name='reply_comment'),
     path('comments/<int:comment_pk>/like', like_comment, name='like_comment'),
 ]

@@ -13,13 +13,14 @@
             <div class="col-11">
                 <h6 class="card-subtitle mb-2 text-muted">
                     {{ names|get_item:node.pk }}
-                    • <span title="{{ node.timestamp }}">{{ thread.timestamp|naturaltime }}</span> • <strong id="comment-score-{{ node.pk }}">{{ node.score }} points</strong>
+                    • <span title="{{ node.timestamp }}">{{ node.timestamp|naturaltime }}</span> • <strong id="comment-score-{{ node.pk }}">{{ node.score }} points</strong>
                 </h6>
                 <p class="card-text">{{ node.body }}</p>
                 <h6 class="card-subtitle mb-2 text-muted">
                     <a href="{% url 'reply_comment' node.pk %}">Reply</a>
                     {% if node.author == user %}
                         • <a href="{% url 'edit_comment' node.pk %}">Edit</a>
+                        • <a href="{% url 'delete_comment' node.pk %}">Delete</a>
                     {% endif %}
                 </h6>
             </div>

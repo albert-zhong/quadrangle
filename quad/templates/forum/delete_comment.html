@@ -1,0 +1,35 @@
+{% extends 'layout/base.html' %}
+{% load humanize %}
+{% block content %}
+<h2>Are you sure you want to delete your comment?</h2>
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-0">
+                <button id="like-comment-button" class="btn btn-outline-success btn-sm">👍</button>
+                <br />
+                <button id="dislike-comment-button" class="btn btn-outline-danger btn-sm">👎</button>
+            </div>
+            <div class="col-11">
+                <h6 class="card-subtitle mb-2 text-muted">
+                    <i>me</i>
+                    • <span title="{{ node.timestamp }}">{{ node.timestamp|naturaltime }}</span>
+                    • {{ node.score }} points
+                </h6>
+                <p class="card-text">{{ node.body }}</p>
+                <h6 class="card-subtitle mb-2 text-muted">
+                    <a href="{% url 'reply_comment' node.pk %}">Reply</a>
+                    {% if node.author == user %}
+                        • <a href="{% url 'edit_comment' node.pk %}">Edit</a>
+                        • <a href="{% url 'delete_comment' node.pk %}">Delete</a>
+                    {% endif %}
+                </h6>
+            </div>
+        </div>
+    </div>
+</div>
+<form method="post">
+    {% csrf_token %}
+    <button class="btn btn-danger btn-lg" type="submit">Delete</button>
+</form>
+{% endblock content %}

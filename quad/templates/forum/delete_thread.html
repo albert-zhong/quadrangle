@@ -1,20 +1,9 @@
 {% extends 'layout/base.html' %}
 {% block content %}
-<h2>Are you sure you want to delete your thread? This is irreversible.</h2>
-<div class="card">
-    <div class="card-header">
-        {{ college.full_name }} • posted by {{ author }}
-    </div>
-    <div class="card-body">
-        <h5 class="card-title">{{ thread.title }}</h5>
-        <p class="card-text">{{ thread.body }}</p>
-    </div>
-    <div class="card-footer">
-        Score: {{ thread.score }}
-    </div>
-</div>
-<form action="" method="post">
+<h2>Are you sure you want to delete your thread?</h2>
+{% include 'forum/thread_post.html' %}
+<form method="post">
     {% csrf_token %}
-    <button class="btn btn-danger" type="submit">Delete</button>
+    <button class="btn btn-danger btn-lg" type="submit">Delete</button>
 </form>
 {% endblock content %}

@@ -36,7 +36,9 @@ def view_forum(request, college_slug):
 
     template_name = 'forum/forum.html'
     threads = college.threads.all().select_related('author')
-    names = {thread.slug: get_display_name(thread) for thread in threads}
+    names = {
+        thread.slug: get_display_name(user=request.user, post=thread) for thread in threads
+    }
     context = {
         'college': college,
         'threads': threads,
@@ -98,9 +100,9 @@ def view_thread(request, thread_slug):
     anon_names = {anon.user: f'[anonymous {anon.id}]' for anon in anons}
     comments = thread.comments.all().select_related('author')
     names = {
-        comment.pk: get_display_name(post=comment, anon_names=anon_names) for comment in comments
+        comment.pk: get_display_name(user=user, post=comment, anon_names=anon_names) for comment in comments
     }
-    names['thread'] = get_display_name(post=thread, anon_names=anon_names)
+    names['thread'] = get_display_name(user=user, post=thread, anon_names=anon_names)
 
     comment_like_statuses = {
         comment.pk: {'score': comment.score, 'likeStatus': 0} for comment in comments
@@ -125,10 +127,12 @@ def view_thread(request, thread_slug):
     return render(request, template_name, context)
 
 
-def get_display_name(post, anon_names={}):
+def get_display_name(user, post, anon_names={}):
     author = post.author
-
-    if not author:
+    
+    if author == user:
+        return '[me]'
+    elif not author:
         return '[deleted]'
     elif post.is_anonymous:
         if author in anon_names:
@@ -159,7 +163,7 @@ def delete_thread(request, thread_slug):
         thread.title = '[deleted]'
         thread.body = '[deleted]'
         thread.save()
-        alert(request, 'Thread successfully deleted', 'success')
+        alert(request, 'Thread successfully deleted!', 'success')
         return redirect(college)
 
     template_name = 'forum/delete_thread.html'
@@ -312,6 +316,34 @@ def edit_comment(request, comment_pk):
     form = CommentEditForm(initial={'body': comment.body})
     context = {'form': form}
 
+    return render(request, template_name, context)
+
+
+@login_required
+def delete_comment(request, comment_pk):
+    comment = get_object_or_404(
+        Comment.objects.select_related('author', 'thread'),
+        pk=comment_pk
+    )
+    author = comment.author
+    thread = comment.thread
+    user = request.user
+
+    if user != comment.author:
+        alert(request, 'You can only edit your own comments!', 'warning')
+        return redirect('home')
+
+    if request.method == 'POST':
+        comment.author = None
+        comment.body = '[deleted]'
+        comment.save()
+        alert(request, 'Comment successfully deleted!', 'success')
+        return redirect(thread)
+
+    template_name = 'forum/delete_comment.html'
+    context = {
+        'node': comment
+    }
     return render(request, template_name, context)
 
 
