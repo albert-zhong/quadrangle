@@ -8,7 +8,7 @@ from .managers import MyUserManager
 
 
 class MyUser(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(unique=True)
+    email = models.EmailField(_('email address'), unique=True)
     first_name = models.CharField(_('first name'), max_length=30, blank=True)
     last_name = models.CharField(_('last name'), max_length=150, blank=True)
     college = models.ForeignKey(
@@ -33,7 +33,6 @@ class MyUser(AbstractBaseUser, PermissionsMixin):
     )
 
     USERNAME_FIELD = 'email'
-    
     objects = MyUserManager()
 
     def __str__(self):

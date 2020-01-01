@@ -1,0 +1,9 @@
+{% autoescape off %}
+Hey there,
+
+Please click the link to confirm your registration on Quadrangle.me.
+http://{{ domain }}{% url 'activate' uidb64=uid token=token %}
+
+Thanks,
+Qudrangle.me team
+{% endautoescape %}
