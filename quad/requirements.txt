@@ -4,7 +4,7 @@ asn1crypto==0.24.0
 cffi==1.12.3
 cryptography==2.7
 distlib==0.3.0
-Django==3.0.1
+Django==3.0.3
 django-crispy-forms==1.8.1
 django-extensions==2.2.5
 django-js-asset==1.2.2
