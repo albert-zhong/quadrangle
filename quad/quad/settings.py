@@ -26,7 +26,11 @@ SECRET_KEY = 'gu&3ulnr1gdam(5zj1!#(1oxhsdj_e99=8@8^ys_k_hnlbkn*5'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'deft-observer-265220.appspot.com',
+    'quadrangle.me',
+    '127.0.0.1',
+]
 
 
 # Application definition
@@ -80,12 +84,35 @@ WSGI_APPLICATION = 'quad.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+# [START db_setup]
+if os.getenv('GAE_APPLICATION', None):
+    # Running on production App Engine, so connect to Google Cloud SQL using
+    # the unix socket at /cloudsql/<your-cloudsql-connection string>
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'HOST': '/cloudsql/deft-observer-265220:us-central1:quadrangle-instance',
+            'USER': 'albert',
+            'PASSWORD': 'blog.md816',
+            'NAME': 'quad',
+        }
     }
-}
+else:
+    # Running locally so connect to either a local MySQL instance or connect 
+    # to Cloud SQL via the proxy.  To start the proxy via command line: 
+    #    $ cloud_sql_proxy -instances=[INSTANCE_CONNECTION_NAME]=tcp:3306 
+    # See https://cloud.google.com/sql/docs/mysql-connect-proxy
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'quad',
+            'USER': 'albert',
+            'PASSWORD': 'blog.md816',
+            'HOST': '127.0.0.1',
+            'PORT': '3306'
+        }
+    }
+# [END db_setup]
 
 
 # Password validation

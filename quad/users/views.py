@@ -21,9 +21,12 @@ class SignUpView(CreateView):
     def form_valid(self, form):
         user = form.save(commit=False)
         user.college = form.college
-        user.is_active = False
+        # Set to true for now
+        user.is_active = True
         user.save()
 
+        # ignore email verification for now
+        """
         mail_subject = 'Activate your Quadrangle.me account'
         message = render_to_string(
             'registration/activate_email.html',
@@ -38,6 +41,9 @@ class SignUpView(CreateView):
         email = EmailMessage(mail_subject, message, to=[to_email])
         email.send()
         alert(self.request, 'Please check your email to finish setting up your account.', 'success')
+        """
+
+
         return super().form_valid(form)
 
 
