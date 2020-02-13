@@ -29,12 +29,15 @@ class College(models.Model):
 
 
 class CollegeEmail(models.Model):
-    domain = models.URLField(max_length=31)
+    domain = models.CharField(max_length=31)
     college = models.ForeignKey(
         College,
         on_delete=models.CASCADE,
         related_name='emails'
     )
+
+    def __str__(self):
+        return self.domain
 
 
 class Thread(models.Model):
